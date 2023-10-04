@@ -1,0 +1,205 @@
+---
+title: "Factor Analysis: Self-esteem"
+author: "Victoria Bolotova"
+date: "05 06 2022"
+output: 
+    html_document:
+      theme: cosmo
+      code_folding: show
+      toc: true
+      toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Reading the data
+
+```{r}
+library(EFA.dimensions)
+self_esteem <- as.data.frame(data_RSE)
+```
+
+# Description of manifest variables
+
+* Q1 - On the whole, I am satisfied with myself. 
+* Q2 - At times I think I am no good at all. 
+* Q3 - I feel that I have a number of good qualities. 
+* Q4 - I am able to do things as well as most other people. 
+* Q5 - I feel I do not have much to be proud of. 
+* Q6 - I certainly feel useless at times. 
+* Q7 - I feel that I'm a person of worth, at least on an equal plane with others. 
+* Q8 - I wish I could have more respect for myself. 
+* Q9 - All in all, I am inclined to feel that I am a failure. 
+* Q10 - I take a positive attitude toward myself. 
+
+Items 2, 5, 6, 8, 9 are reverse scored. Give “Strongly Disagree” 1 point, “Disagree” 2 points,
+“Agree” 3 points, and “Strongly Agree” 4 points.
+
+# Preparatory steps for Factor analysis 
+
+* There are no NAs in the data, but there are 9 observations that have 0. 
+
+## Delete 0
+
+```{r}
+self_esteem[self_esteem == 0] <- NA
+
+self_esteem <- na.omit(self_esteem)
+nrow(self_esteem)
+```
+
+* By deleting zeros, we lose 9 observations. Now we have 291 observations. 
+
+## Check the type of variables
+
+```{r}
+sapply(self_esteem, class) 
+```
+
+* We should transform all variables into a factor type, because all variables have only 4 levels. Moreover, these variables are of ordinal type of measurement, so we cannot treat them as numeric or integer. 
+
+## Transform to factor
+
+```{r}
+self_esteem[, 1:10] <- lapply(self_esteem[, 1:10], as.factor)
+```
+
+## Correlations
+
+```{r}
+library(psych)
+library(polycor) #polychoric correlations
+library(corrplot)
+self_esteem_cor <- hetcor(self_esteem) #heterogeneous correlations
+cor.plot(self_esteem_cor$correlations)
+```
+
+* Most variables have large correlations between each other (from 0.6 to 0.8)
+* But some variable have medium correlations between each other (from 0.4 to 0.5)
+* There are no small correlations, the smallest correlation among all variables is -0.41. 
+
+## Parallel Analysis screen plot
+
+* Helps determine the number of factors
+
+```{r}
+fa.parallel(self_esteem_cor$correlations, n.obs=291, fa="fa", n.iter=100) 
+```
+
+* We should look where red dotted line is crossed with triangles' line. The number of factors should be determined by the number of triangles before this intersection. Also, we can look at black horizontal line (eigenvalues). 
+
+* As for red dotted line, there 2 triangle before the intersection and the 3nd triangle is crossed by red dotted line. According to eigenvalues, we should extract 1 factor. 
+
+* Also, in system message there is a hint for us: "Parallel analysis suggests that the number of factors =  3"
+
+* Thus, let's try to use 3 factor.
+
+# Factor Analysis
+
+## Three factors 
+
+* by default, rotation is enabled
+
+```{r}
+library(GPArotation)
+fa(self_esteem_cor$correlations, 3, cor = "mixed")
+```
+
+- Interpretation:
+  - Good cumulative var (0.76)
+  - RMSR is 0.02, which is good
+  - Mean item complexity 1.5, which indicates a problem
+  - As for Proportion Var (proportion of variance which is explained by each factor), the last factor (MR3) explains only 6% of variance. According to the rule of thumb, one factor should explain at least 10% of variance. Thus, it indicates that we should reduce the number of factors to 2 factors. 
+  - Also, we should look at Proportion Explained. We can see a big gap between the factors in terms of proportion of variances explained, which also indicates that we should reduce the number of factors to at least two. 
+  - RMSEA and Tucker Lewis Index are not shown in the output
+  
+- Loadings:
+  - All factor loadings are higher than 0.45 and have small uniqueness (~ 20), which is good
+  - But there are some manifest variables that belong approximately equally to two factors (e.g., Q2 has -0.46 loadings for MR1 and has 0.55 loadings for MR2; and  Q4 had -0.38 loadings for MR1 and 0.45 loadings for MR2)
+  - There is a little high uniqueness for Q4 (0.45), but the value is within the acceptable range. 
+  - Some manifest variables have very high factor loadings (e.g., Q10 has factor loading 0.97)
+
+
+* Let us reduce the number of factors to two.
+
+## Two factors
+
+* by default, rotation is enabled
+
+```{r}
+fa(self_esteem_cor$correlations, 2, cor = "mixed")
+```
+
+- Interpretation:
+  - Still good cumulative var (0.71) and not big difference with previous FA (0.76)
+  - RMSR is 0.03, which is good
+  - Mean item complexity 1.2, which is a good result, at least better than it was in the previous FA (1.5)
+  - As for Proportion Var and Proportion Explained, this FA is much better than the first FA with 3 factors.
+  - RMSEA and Tucker Lewis Index are not shown in the output
+  - All factor loadings high enough, the lowest factor loading equals to 0.51
+  
+## FA diagram
+
+```{r}
+fa.diagram(fa(self_esteem_cor$correlations, 2, cor = "mixed"))
+```
+
+MR1:
+
+* Q3 - I feel that I have a number of good qualities. Factor loading = 0.6
+* Q5 - I feel I do not have much to be proud of. Factor loading = 0.5
+* Q6 - I certainly feel useless at times. Factor loading = -0.6
+* Q7 - I feel that I'm a person of worth, at least on an equal plane with others. Factor loading = -0.7
+* Q8 - I wish I could have more respect for myself. Factor loading = 0.8
+* Q9 - All in all, I am inclined to feel that I am a failure. Factor loading = 0.9
+* Q10 - I take a positive attitude toward myself. Factor loading = 1
+
+MR2:
+
+* Q1 - On the whole, I am satisfied with myself. Factor loading = 0.8
+* Q2 - At times I think I am no good at all. Factor loading = 0.8
+* Q4 - I am able to do things as well as most other people.  Factor loading = 0.7
+
+To be honest, I did not see meaningful 2 factors behind these two sets of questions.
+
+## Oblimin rotate method 
+
+```{r}
+fa(self_esteem_cor$correlations, 2, cor = "mixed", rotate="oblimin", fm="ml")
+```
+
+* The result is approximately the same, but now first factor becomes even more powerful (a little bit, but still) in explaining variances, according to increased proportion var, cumulative var and proportion explained.
+* Results show that first factor explains approximately two times higher variances than the second one. 
+* Thus, let us try to extract only one factor behind these 10 manifest variables. Moreover, according to eigenvalues, we should extract exactly 1 factor. 
+
+## One factor
+
+```{r}
+fa(self_esteem_cor$correlations, 1, cor = "mixed", fm="ml")
+```
+
+* Now this FA explains 66% of variances, which is also very good, but is smaller than for previous FAs.
+* RMSR equals to 0.06, which is a little bit higher than for previous FAs.
+* However, mean item complexity for this FA equals to 1, thus, according to this metric, FA with one factor is better. 
+
+* It is important to mention that for this FA uniqueness metric for many variables become higher. For some variables it is about 0.52
+
+```{r}
+fa.diagram(fa(self_esteem_cor$correlations, 1, cor = "mixed", fm="ml"))
+```
+
+* As we can see, Q6, Q7, Q2, Q1 and Q4 have negative signs. However, items 2, 5, 6, 8, 9 were reversed. Thus, from items of reversed scores only 2nd and 6th have minus sign. 
+
+Interestingly, that three variables with negative sign previously formed the separate factor (in FA with 2 factors):
+
+* Q1 - On the whole, I am satisfied with myself. Factor loading = 0.8
+* Q2 - At times I think I am no good at all. Factor loading = 0.8
+* Q4 - I am able to do things as well as most other people.  Factor loading = 0.7
+
+# Conclusion
+
+* To sum up, I think that FA with 1 factor is the best, despite its limitations. 
+* Three factors is definitely too much, because third one explains less than 10% of variances by itself.
+* Two factors seems to be optimal, however, it is very hard to find meaningful factors behind such division. 
